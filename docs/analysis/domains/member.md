@@ -21,7 +21,11 @@ GET /api/members/me · PATCH /api/members/me · DELETE /api/members/me · POST /
 - 파티장인 파티가 있으면 거부(PARTY_LEADER_CANNOT_WITHDRAW).
 - 일반 파티원 레코드 삭제 + 각 파티 `currentMembers` 감소(비관적 락).
 - quest/routine/streak/memberCharacter를 벌크 삭제 후 회원 삭제.
-- **주의**: `chat_messages`와 `party_verifications`는 탈퇴 시 삭제하지 않음 → `member_id` FK가 남은 채 회원 삭제 시 **FK 제약 위반 가능성**. 채팅을 남긴 회원의 탈퇴가 실제로 성공하는지 Phase 2 통합 테스트로 검증 필요(잠재적 위험 R8로 추가).
+- **주의(R8 — 2026-10-21 교정, [phase1-review §4-3·4-4](../../phase-reports/phase1-review.md))**: 탈퇴가 `chat_messages`와 `party_verifications`를 정리하지 않는다. 단, 두 테이블의 FK는 서로 다르다:
+  - `chat_messages.member_id`(NOT NULL, ChatMessage.java:31) → **회원 삭제 시점**(MemberService.java:110)에 위반 가능.
+  - `party_verifications.party_member_id`(NOT NULL, PartyVerification.java:31 — ~~member_id 참조라던 최초 서술은 오류~~, 01-erd.md에는 올바르게 기재) → 회원 삭제보다 앞선 **파티원 레코드 삭제 시점**(MemberService.java:205 `deleteAll`)에 위반 가능.
+  - **범위 확장**: 같은 이유로 일반 **파티 탈퇴**(PartyService.leaveParty:195)도 인증 이력이 있는 파티원이면 실패할 수 있음 — 회원 탈퇴보다 빈번한 경로라 영향이 더 큼. Phase 1 최초 분석이 놓친 시나리오.
+  - 전부 코드 추론(FK 제약은 `ddl-auto: update`가 실제 생성했는지에 의존) — Phase 2 통합 테스트로 재현 전까지 결함 미확정.
 
 ## 의존성
 party(탈퇴 시), quest/routine/streak/character 리포지토리 직접 참조 — member가 타 도메인 테이블을 직접 정리하는 구조(도메인 이벤트 미사용).

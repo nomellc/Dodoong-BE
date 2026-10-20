@@ -32,7 +32,7 @@
 | ID | 내용 | 분류 | 검증 상태 |
 |----|------|------|----------|
 | R7 | `Member.subtractExperience`의 레벨 다운 시 코인 회수가 잔액 검사 없이 수행 — 코인을 이미 소비한 경우 **음수 코인** 가능 | 잠재적 위험 | 코드 확인, 실행 미검증 |
-| R8 | 회원 탈퇴가 chat_messages·party_verifications를 정리하지 않음 — FK 제약 위반으로 **탈퇴 실패 가능성** | 잠재적 위험 | 코드 확인, 실행 미검증 — Phase 2 통합 테스트 1순위 |
+| R8 | **회원 탈퇴·파티 탈퇴**가 chat_messages(member_id FK)·party_verifications(**party_member_id** FK)를 정리하지 않음 — FK 제약 위반으로 **탈퇴/파티탈퇴 실패 가능성** (2026-10-21 교정: 최초 서술은 verification을 member_id FK로 오기, 파티 탈퇴 경로 누락 — [phase1-review §4-3·4-4](../phase-reports/phase1-review.md)) | 잠재적 위험 | 코드 확인, 실행 미검증 — Phase 2 통합 테스트 1순위 |
 | R9 | 파티 수정 요청에 `isPublic` 누락 시 Boolean→boolean unboxing **NPE(500)** 가능 | 잠재적 위험 | 코드 확인, 실행 미검증 |
 | R10 | STOMP SUBSCRIBE 시점의 파티원 권한 검증 부재 — 비파티원이 채팅 토픽 구독 가능해 보임 | 잠재적 위험 | 코드 확인, 실행 미검증 |
 | O6 | dev에 `open-in-view` 미설정(기본 true) vs prod false — 환경 간 동작 차이 | 개선 기회 | 설정 파일 확인 |

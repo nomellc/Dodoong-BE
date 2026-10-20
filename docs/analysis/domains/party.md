@@ -19,8 +19,8 @@
 - 가입 경쟁 시나리오: 파티 락을 먼저 잡으므로 정원 초과 경쟁은 직렬화됨. 단, 정원 검증은 count 기반이고 상태 갱신은 필드 기반(아래 R2).
 
 ## 알려진 이슈
-- **R1**: `PartyRepositoryImpl.searchParties`의 `isPublicParty()` 필터가 주석 처리 — 비공개 파티도 검색 노출. 의도 여부 확인 필요.
-- **R2**: 정원의 이중 소스 — 검증은 `countByPartyId()`, 모집 상태는 `currentMembers` 필드. 두 값이 어긋나면(예: 과거 버그, 수동 데이터 수정) 검증과 표시가 불일치.
+- **R1 → 스펙으로 확정(2026-10-21 @nomellc)**: `PartyRepositoryImpl.searchParties`의 `isPublicParty()` 필터 주석 처리는 의도된 것 — 비공개 파티도 검색에 노출하고 **가입만 비밀번호로 제한**하는 제품 결정. 주석 처리된 필터(검색·카운트 쿼리 2곳)와 미사용 `isPublicParty()` 메서드는 정리 후보. Phase 2에서 "비공개 파티가 검색 결과에 포함된다"를 기대값으로 테스트해 스펙 고정.
+- **R2 → 결정됨(2026-10-21 @nomellc): 현 구조 유지 + 일치 검증 테스트** — 정원의 이중 소스(검증은 `countByPartyId()`, 모집 상태는 `currentMembers` 필드)는 정상 경로에서 같은 트랜잭션으로 함께 갱신되므로 유지. 대신 Phase 2에서 가입/탈퇴/회원탈퇴 후 `count == currentMembers` 일치를 검증하는 테스트로 어긋남 감지 장치를 둔다. 단일화는 개선 후보로만 유지(테스트가 실제 불일치를 잡으면 재논의).
 - **R3**: 인증 S3 업로드가 재검증 "전"에 수행 — 재검증 실패 시 S3 고아 객체. 파티 삭제는 트랜잭션 안에서 S3 delete 호출 — S3 장애 시 삭제 전체 롤백.
 - **R5**: 카테고리 필터가 `cast(category as string) LIKE %NAME%` — 현재 enum(STUDY/CAREER/DAILY/LANGUAGE/FITNESS)은 상호 부분문자열이 아니라 오탐 없음을 확인. 단 enum 추가 시 깨질 수 있고 인덱스 불가.
 - 검색은 offset 페이징 + count 쿼리 — 데이터 증가 시 Phase 5 측정 대상.
