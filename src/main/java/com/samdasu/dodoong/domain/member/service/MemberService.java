@@ -1,6 +1,7 @@
 package com.samdasu.dodoong.domain.member.service;
 
 import com.samdasu.dodoong.domain.character.repository.MemberCharacterRepository;
+import com.samdasu.dodoong.domain.chat.repository.ChatMessageRepository;
 import com.samdasu.dodoong.domain.member.dto.request.ProfileImageUploadRequest;
 import com.samdasu.dodoong.domain.member.dto.response.MemberResponse;
 import com.samdasu.dodoong.domain.member.dto.request.ProfileUpdateRequest;
@@ -13,6 +14,7 @@ import com.samdasu.dodoong.domain.party.entity.PartyMember;
 import com.samdasu.dodoong.domain.party.entity.PartyRole;
 import com.samdasu.dodoong.domain.party.repository.PartyMemberRepository;
 import com.samdasu.dodoong.domain.party.repository.PartyRepository;
+import com.samdasu.dodoong.domain.party.repository.PartyVerificationRepository;
 import com.samdasu.dodoong.domain.quest.repository.DailyQuestRepository;
 import com.samdasu.dodoong.domain.routine.repository.RoutineRepository;
 import com.samdasu.dodoong.domain.streak.repository.StreakRepository;
@@ -41,6 +43,8 @@ public class MemberService {
     private final MemberCharacterRepository memberCharacterRepository;
     private final FileStorage fileStorage;
     private final PartyMemberRepository partyMemberRepository;
+    private final PartyVerificationRepository partyVerificationRepository;
+    private final ChatMessageRepository chatMessageRepository;
     private final DailyQuestRepository dailyQuestRepository;
     private final RoutineRepository routineRepository;
     private final StreakRepository streakRepository;
@@ -106,6 +110,9 @@ public class MemberService {
         routineRepository.deleteAllByMemberId(memberId);
         streakRepository.deleteAllByMemberId(memberId);
         memberCharacterRepository.deleteAllByMemberId(memberId);
+
+        // 채팅 메시지는 보존하고 보낸 사람만 끊는다(익명화 — R8, 2026-10-21 결정)
+        chatMessageRepository.detachSenderByMemberId(memberId);
 
         memberRepository.delete(member);
     }
@@ -195,12 +202,20 @@ public class MemberService {
     private void leaveAllJoinedParties(Long memberId) {
         List<PartyMember> joinedPartyMembers = partyMemberRepository.findAllByMemberIdAndRole(memberId, PartyRole.MEMBER);
 
+        if (joinedPartyMembers.isEmpty()) {
+            return;
+        }
+
         for (PartyMember partyMember : joinedPartyMembers) {
             Party party = partyRepository.findByIdForUpdate(partyMember.getParty().getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.PARTY_NOT_FOUND));
 
             party.decreaseCurrentMembers();
         }
+
+        // 파티원 레코드를 지우기 전에 그 파티원의 인증을 먼저 정리(FK — R8, 2026-10-21 결정)
+        partyVerificationRepository.deleteByPartyMemberIds(
+                joinedPartyMembers.stream().map(PartyMember::getId).toList());
 
         partyMemberRepository.deleteAll(joinedPartyMembers);
     }

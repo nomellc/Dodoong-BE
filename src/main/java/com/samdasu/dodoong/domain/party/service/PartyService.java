@@ -192,6 +192,9 @@ public class PartyService {
             throw new CustomException(ErrorCode.PARTY_LEADER_CANNOT_LEAVE);
         }
 
+        // 파티원 레코드를 지우기 전에 그 파티원의 인증을 먼저 정리(FK — R8, 2026-10-21 결정)
+        partyVerificationRepository.deleteByPartyMemberIds(java.util.Collections.singletonList(partyMember.getId()));
+
         partyMemberRepository.delete(partyMember);
         party.decreaseCurrentMembers();
     }

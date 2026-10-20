@@ -11,10 +11,13 @@ import org.testcontainers.containers.MySQLContainer;
  * 컨테이너는 싱글턴으로 1회만 기동해 서브클래스들이 공유한다
  * (@Container 방식은 테스트 클래스마다 컨테이너를 새로 띄워 느려짐).
  * Redis는 사용하는 테스트가 없어 기동하지 않는다(Spring의 Redis 연결은 lazy).
+ *
+ * Phase 3부터 스키마는 Flyway 마이그레이션(V1~)이 생성하고 Hibernate는 validate만 한다
+ * — 모든 통합 테스트가 실행될 때마다 마이그레이션 자체가 검증되는 효과.
  */
 @SpringBootTest
 @TestPropertySource(properties = {
-        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.jpa.hibernate.ddl-auto=validate",
         "jwt.secret=Y29kZXgtdGVzdC1qd3Qtc2VjcmV0LWtleS0zMi1ieXRlcyEh",
         "jwt.access-token-expiration=1800000",
         "jwt.refresh-token-expiration=1209600000"

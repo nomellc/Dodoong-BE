@@ -27,8 +27,9 @@ public class ChatMessage extends BaseTimeEntity {
     @JoinColumn(name = "party_id", nullable = false)
     private Party party;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "member_id", nullable = false)
+    // 회원 탈퇴 시 메시지는 보존되고 sender만 NULL이 된다(익명화, R8 — V3 마이그레이션)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id")
     private Member sender;
 
     @Builder

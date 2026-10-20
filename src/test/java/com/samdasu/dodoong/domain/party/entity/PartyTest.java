@@ -72,28 +72,9 @@ class PartyTest {
                     .isEqualTo(ErrorCode.INVALID_MAX_MEMBERS);
         }
 
-        @Test
-        @org.junit.jupiter.api.Disabled("R9 결함 확정(2026-10-21 재현: isPublic=null unboxing NPE) — Phase 3에서 수정 후 활성화")
-        @DisplayName("[R9 재현] 요청에 isPublic이 없어도(null) 수정이 실패하지 않아야 한다")
-        void updateShouldNotFailWhenIsPublicIsOmitted() {
-            Party party = createParty(5, true, null);
-            PartyUpdateRequestDto dto = new PartyUpdateRequestDto("설명만 수정", 5, null, null);
-
-            assertThatCode(() -> party.updateParty(dto, null))
-                    .as("isPublic 생략(null) 시 Boolean→boolean unboxing NPE가 나면 결함 (R9)")
-                    .doesNotThrowAnyException();
-        }
-
-        @Test
-        @DisplayName("[R9 현재 동작 기록] isPublic이 null이면 NullPointerException이 발생한다")
-        void documentsCurrentNpeBehaviorWhenIsPublicIsNull() {
-            Party party = createParty(5, true, null);
-            PartyUpdateRequestDto dto = new PartyUpdateRequestDto("설명만 수정", 5, null, null);
-
-            // 현재 구현의 실제 동작 고정 — GlobalExceptionHandler에서 500으로 떨어진다.
-            assertThatThrownBy(() -> party.updateParty(dto, null))
-                    .isInstanceOf(NullPointerException.class);
-        }
+        // R9 수정(2026-10-21 결정 7): isPublic 생략은 엔티티에 도달하기 전에 @NotNull 검증(400)으로
+        // 거부된다. Phase 2의 "NPE 재현/현재 동작 기록" 테스트는 PartyUpdateRequestDtoTest의
+        // Bean Validation 테스트로 교체됨.
     }
 
     @Nested

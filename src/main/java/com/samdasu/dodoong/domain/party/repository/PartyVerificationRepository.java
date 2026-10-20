@@ -52,6 +52,12 @@ public interface PartyVerificationRepository extends JpaRepository<PartyVerifica
     @Query("DELETE FROM PartyVerification pv WHERE pv.party.id = :partyId")
     void deleteByPartyId(@Param("partyId") Long partyId);
 
+    // 파티원 삭제(파티 탈퇴·회원 탈퇴) 전에 그 파티원의 인증을 정리한다(R8)
+    // clearAutomatically는 쓰지 않는다 — 같은 트랜잭션에서 관리 중인 party/partyMember의 변경을 날릴 수 있음
+    @Modifying(flushAutomatically = true)
+    @Query("DELETE FROM PartyVerification pv WHERE pv.partyMember.id IN :partyMemberIds")
+    void deleteByPartyMemberIds(@Param("partyMemberIds") List<Long> partyMemberIds);
+
     // S3 이미지 삭제를 위해 URL 가져오는 쿼리
     @Query("SELECT pv.imageUrl FROM PartyVerification pv WHERE pv.party.id = :partyId AND pv.imageUrl IS NOT NULL")
     List<String> findImageUrlsByPartyId(@Param("partyId") Long partyId);

@@ -7,7 +7,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate # Phase 3: 스키마 변경은 Flyway 마이그레이션으로만 (C2)
     show-sql: false
     properties:
       hibernate:

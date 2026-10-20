@@ -78,21 +78,16 @@ public class Member extends BaseTimeEntity {
         }
     }
 
+    // 체크 해제 롤백: 경험치만 차감(0 하한), 레벨·코인은 유지 (R7 수정 — 2026-10-21 결정)
+    // 레벨 다운+코인 회수 방식은 보상 코인을 이미 소비한 경우 잔액을 음수로 만들었다.
+    // 레벨을 유지하면 체크-해제-재체크를 반복해도 레벨 경계를 다시 넘지 않으므로
+    // 보상이 중복 지급되지 않는다(코인 복제 불가).
     public void subtractExperience(int amount) {
         if (amount <= 0) {
             return;
         }
 
-        int remaining = amount;
-
-        while (remaining > this.experience && this.level > 1) {
-            remaining -= this.experience;
-            spendCoin(levelUpReward());
-            this.level -= 1;
-            this.experience = calculateRequiredExperience();
-        }
-
-        this.experience = Math.max(0, this.experience - remaining);
+        this.experience = Math.max(0, this.experience - amount);
     }
 
     //코인 보유량 검사

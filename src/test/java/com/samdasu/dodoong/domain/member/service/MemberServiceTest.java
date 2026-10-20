@@ -53,6 +53,8 @@ class MemberServiceTest {
     @Mock private MemberCharacterRepository memberCharacterRepository;
     @Mock private FileStorage fileStorage;
     @Mock private PartyMemberRepository partyMemberRepository;
+    @Mock private com.samdasu.dodoong.domain.party.repository.PartyVerificationRepository partyVerificationRepository;
+    @Mock private com.samdasu.dodoong.domain.chat.repository.ChatMessageRepository chatMessageRepository;
     @Mock private DailyQuestRepository dailyQuestRepository;
     @Mock private RoutineRepository routineRepository;
     @Mock private StreakRepository streakRepository;
@@ -220,6 +222,7 @@ class MemberServiceTest {
             party.increaseCurrentMembers(); // 2명(파티장+본인)
             PartyMember partyMember = PartyMember.builder()
                     .role(PartyRole.MEMBER).member(member).party(party).build();
+            ReflectionTestUtils.setField(partyMember, "id", 15L);
 
             when(memberRepository.findById(7L)).thenReturn(Optional.of(member));
             when(partyMemberRepository.existsByMemberIdAndRole(7L, PartyRole.LEADER)).thenReturn(false);
@@ -230,13 +233,17 @@ class MemberServiceTest {
             memberService.withdraw(7L);
 
             assertThat(party.getCurrentMembers()).isEqualTo(1);
-            InOrder inOrder = inOrder(partyMemberRepository, dailyQuestRepository,
-                    routineRepository, streakRepository, memberCharacterRepository, memberRepository);
+            InOrder inOrder = inOrder(partyVerificationRepository, partyMemberRepository,
+                    dailyQuestRepository, routineRepository, streakRepository,
+                    memberCharacterRepository, chatMessageRepository, memberRepository);
+            // R8: 인증 삭제 → 파티원 삭제, 채팅 익명화 → 회원 삭제 순서가 FK를 지킨다
+            inOrder.verify(partyVerificationRepository).deleteByPartyMemberIds(List.of(15L));
             inOrder.verify(partyMemberRepository).deleteAll(List.of(partyMember));
             inOrder.verify(dailyQuestRepository).deleteAllByMemberId(7L);
             inOrder.verify(routineRepository).deleteAllByMemberId(7L);
             inOrder.verify(streakRepository).deleteAllByMemberId(7L);
             inOrder.verify(memberCharacterRepository).deleteAllByMemberId(7L);
+            inOrder.verify(chatMessageRepository).detachSenderByMemberId(7L);
             inOrder.verify(memberRepository).delete(member);
         }
 

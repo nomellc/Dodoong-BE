@@ -6,7 +6,7 @@
 
 - 기존 Spring Boot 서비스(Dodoong: 게이미피케이션 투두 앱 백엔드)에 **AI 코딩 에이전트를 실제 개발 프로세스로 도입**하고 효과·한계를 측정하는 프로젝트. 코드 양산이 아니라 **위임→검증→기록**이 목적.
 - 최종 의사결정자는 사람(@nomellc). AI 산출물을 사람이 이해하지 못한 채 채택하는 것 금지.
-- Phase 0(베이스라인)~7(포트폴리오) 구성. 현재 **Phase 2(AI 테스트 엔지니어링)까지 완료**(2026-10-21: 서비스 계층 라인 80.4%, 테스트 126건, R7·R8·R9 결함 확정 — docs/worklog/2026-10-21-phase2-test-engineering.md), 다음은 Phase 3(확정 결함 수정).
+- Phase 0(베이스라인)~7(포트폴리오) 구성. 현재 **Phase 3(확정 결함 수정)까지 완료**(2026-10-21: R7·R8·R9 수정 + Flyway 도입으로 C2·C5 해결, 테스트 126건 그린·skipped 0 — docs/worklog/ 참조). Phase 2는 서비스 계층 커버리지 24%대→80%대 달성.
 - **운영 방식(2026-10-21 변경)**: Claude Code가 주력 도구, Codex 역할 분담은 필수에서 제외. 모든 Phase에서 작업 전(문제·범위·대안·판단 사항 제시 → 승인) / 작업 후(수행 내용·검증 근거·한계 보고 → 최종 승인) 절차 적용, 결정은 한 번에 하나씩. Phase 1 검토는 docs/phase-reports/phase1-review.md.
 
 ## 2. 저장소·환경 상태
@@ -52,9 +52,9 @@ docs/
 
 ## 5. 개선 후보 전체 목록 (ID는 전 문서 공통)
 
-**확인된 문제(C)**: C1 테스트 공백(서비스 대부분 0%) · C2 ddl-auto=update, 마이그레이션 도구 없음 · C3 prod CORS에 localhost 잔존 · C4 미사용 쿼리 2건(content 문자열 매칭 설계 흔적) · C5 character_items 시드 부재 · C6 CI 커버리지 보고·배포 헬스체크 없음
+**확인된 문제(C)**: ~~C1~~ 해결(Phase 2: 서비스 계층 80%+) · ~~C2~~ 해결(Phase 3: Flyway 도입, ddl-auto=validate — db/migration/V1~V3) · C3 prod CORS에 localhost 잔존 · C4 미사용 쿼리 2건(content 문자열 매칭 설계 흔적) · ~~C5~~ 해결(Phase 3: V2 시드 마이그레이션) · C6 CI 커버리지 보고·배포 헬스체크 없음
 
-**잠재적 위험(R — 재현 전 확정 금지)**: ~~R1~~ **스펙으로 확정(2026-10-21 @nomellc)**: 비공개 파티도 검색에 노출되고 가입만 비밀번호로 제한 — 위험 아님, Phase 2에서 이 동작을 기대값으로 하는 테스트로 고정 · ~~R2~~ **결정됨(2026-10-21 @nomellc)**: currentMembers vs count 이중 소스는 현 구조 유지, Phase 2에서 가입/탈퇴 시 두 값 일치 검증 테스트 추가(감지 장치) — 단일화는 개선 후보로만 유지 · R3 파티 인증 S3 업로드 순서(고아 객체)/삭제 롤백 · R4 스케줄러 분산 락·미실행 보정 없음 · R5 카테고리 LIKE 검색(enum 추가 시 취약) · R6 비관 락 경합 미측정 · **R7 결함 확정**(2026-10-21 재현: coin=-20, MemberTest) · **R8 결함 확정**(2026-10-21 재현: 회원 탈퇴·**파티 탈퇴** 모두 FK 위반 — verification FK는 party_member_id, phase1-review §4-3·4-4, MemberWithdrawalFkIntegrationTest) · **R9 결함 확정**(2026-10-21 재현: isPublic 누락 NPE, PartyTest) — 셋 다 `@Disabled` 증거 테스트 보유, Phase 3 수정 대상 · R10 채팅 토픽 구독 권한 검증 부재
+**잠재적 위험(R — 재현 전 확정 금지)**: ~~R1~~ **스펙으로 확정(2026-10-21 @nomellc)**: 비공개 파티도 검색에 노출되고 가입만 비밀번호로 제한 — 위험 아님, Phase 2에서 이 동작을 기대값으로 하는 테스트로 고정 · ~~R2~~ **결정됨(2026-10-21 @nomellc)**: currentMembers vs count 이중 소스는 현 구조 유지, Phase 2에서 가입/탈퇴 시 두 값 일치 검증 테스트 추가(감지 장치) — 단일화는 개선 후보로만 유지 · R3 파티 인증 S3 업로드 순서(고아 객체)/삭제 롤백 · R4 스케줄러 분산 락·미실행 보정 없음 · R5 카테고리 LIKE 검색(enum 추가 시 취약) · R6 비관 락 경합 미측정 · ~~R7·R8·R9~~ **수정 완료(2026-10-21 Phase 3, phase3-plan.md·worklog 참조)**: R7은 레벨 다운 폐지(체크 해제 시 경험치만 차감), R8은 채팅 보존+익명화(sender NULL)·인증은 파티원 삭제 시 삭제, R9는 isPublic `@NotNull`(400). 증거 테스트 전부 활성화·그린 — 회귀 방지 장치로 전환. **FE 공지 필요**: 파티 수정에 isPublic 필수, 채팅 응답 senderId/닉네임 null 가능(탈퇴자) · R10 채팅 토픽 구독 권한 검증 부재
 
 **개선 기회(O)**: O1 PartyService(636줄) 분리 · O2 쿼리/N+1 측정 · O3 Micrometer+Prometheus(로컬 우선) · O4 LLM 퀘스트 등록(Phase 6) · O5 로컬 재현성(시드 스크립트+실행 문서) · O6 dev/prod open-in-view 불일치 · O7 잘못된 AccessDeniedException import · O8 ZoneId 하드코딩 5곳 · O9 presigned 미사용 객체 정리 없음
 

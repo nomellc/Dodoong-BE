@@ -127,7 +127,7 @@ class MemberTest {
         }
 
         @Test
-        @DisplayName("레벨 1에서는 레벨 다운 없이 경험치가 0 밑으로 내려가지 않는다")
+        @DisplayName("경험치는 0 밑으로 내려가지 않는다 (0 하한)")
         void clampsAtZeroOnLevelOne() {
             Member member = createMember();
             member.addExperience(5);
@@ -138,75 +138,52 @@ class MemberTest {
             assertThat(member.getExperience()).isZero();
         }
 
+        // R7 수정(2026-10-21 결정 5): 레벨 다운+코인 회수 폐지 → 체크 해제는 경험치만 차감.
+        // Phase 2의 "레벨 다운·코인 회수" 기대값 테스트들은 정책 변경으로 아래 테스트로 교체됨.
         @Test
-        @DisplayName("경험치가 모자라면 레벨 다운하고 레벨업 때 받았던 보상 코인을 회수한다")
-        void levelsDownAndReclaimsReward() {
+        @DisplayName("레벨업 직후 체크 해제해도 레벨과 보상 코인은 유지되고 경험치만 0 하한으로 차감된다")
+        void keepsLevelAndCoinAfterUncheck() {
             Member member = createMember();
             member.addExperience(200); // 레벨 2, 경험치 0, 코인 20
 
             member.subtractExperience(10);
 
-            assertThat(member.getLevel()).isEqualTo(1);
-            // 레벨 1의 만료 경험치(200)로 복원 후 10 차감
-            assertThat(member.getExperience()).isEqualTo(190);
-            assertThat(member.getCoin()).isZero();
+            assertThat(member.getLevel()).isEqualTo(2);
+            assertThat(member.getExperience()).isZero();
+            assertThat(member.getCoin()).isEqualTo(20);
         }
 
         @Test
-        @DisplayName("레벨업 직후 체크 해제하면 레벨·경험치·코인이 레벨업 전 상태로 돌아간다 (대칭성)")
-        void addThenSubtractIsSymmetric() {
-            Member member = createMember();
-            member.addExperience(190);
-
-            member.addExperience(10);  // 레벨업: 레벨2, 경험치 0, 코인 20
-            member.subtractExperience(10); // 롤백
-
-            assertThat(member.getLevel()).isEqualTo(1);
-            assertThat(member.getExperience()).isEqualTo(190);
-            assertThat(member.getCoin()).isZero();
-        }
-
-        @Test
-        @DisplayName("여러 레벨을 내려가면 레벨별 보상이 각각 회수된다")
-        void levelsDownMultipleTimes() {
-            Member member = createMember();
-            member.addExperience(500); // 레벨 3, 경험치 0, 코인 50
-
-            member.subtractExperience(310); // 레벨3 구간(300) + 10
-
-            assertThat(member.getLevel()).isEqualTo(1);
-            // 레벨2 복원(300) → 잔여 310-0=310... 단계별: L3→L2 회수 30, L2→L1 회수 20
-            assertThat(member.getCoin()).isZero();
-            assertThat(member.getExperience()).isEqualTo(190);
-        }
-
-        @Test
-        @org.junit.jupiter.api.Disabled("R7 결함 확정(2026-10-21 재현: coin=-20) — Phase 3에서 수정 후 활성화")
-        @DisplayName("[R7 재현] 보상 코인을 이미 소비한 뒤 레벨 다운하면 코인이 음수가 되지 않아야 한다")
+        @DisplayName("[R7 수정 검증] 보상 코인을 이미 소비한 뒤 체크 해제해도 코인이 음수가 되지 않는다")
         void coinShouldNeverGoNegativeAfterLevelDown() {
             Member member = createMember();
             member.addExperience(200); // 레벨 2, 코인 20
             member.spendCoin(20);      // 캐릭터 구매 등으로 전액 소비 (호출부는 hasEnoughCoin으로 검증)
             assertThat(member.getCoin()).isZero();
 
-            member.subtractExperience(10); // 퀘스트 체크 해제 → 레벨 다운 → 보상 20 회수 시도
+            member.subtractExperience(10); // 퀘스트 체크 해제
 
             assertThat(member.getCoin())
-                    .as("레벨 다운 시 잔액 검사 없이 코인을 회수하면 음수가 된다 (R7)")
+                    .as("Phase 2에서 coin=-20으로 재현됐던 결함 (R7)")
                     .isGreaterThanOrEqualTo(0);
         }
 
         @Test
-        @DisplayName("[R7 현재 동작 기록] 보상 코인 소비 후 레벨 다운 시 코인이 -20이 된다")
-        void documentsCurrentNegativeCoinBehavior() {
+        @DisplayName("[R7 악용 방지] 체크-해제-재체크를 반복해도 보상 코인이 중복 지급되지 않는다")
+        void repeatedCheckUncheckDoesNotFarmCoins() {
             Member member = createMember();
-            member.addExperience(200);
-            member.spendCoin(20);
+            member.addExperience(190);
 
-            member.subtractExperience(10);
+            member.addExperience(10); // 레벨업: 레벨 2, 코인 20
+            for (int i = 0; i < 5; i++) {
+                member.subtractExperience(10); // 해제 — 레벨 유지, 경험치 0 하한
+                member.addExperience(10);      // 재체크 — 레벨 경계를 다시 넘지 않음
+            }
 
-            // 현재 구현의 실제 동작을 고정하는 테스트 — 수정(Phase 3) 시 이 테스트를 갱신해야 함
-            assertThat(member.getCoin()).isEqualTo(-20);
+            assertThat(member.getLevel()).isEqualTo(2);
+            assertThat(member.getCoin())
+                    .as("레벨 유지 정책에서는 레벨 경계를 반복해 넘을 수 없어 보상이 1회만 지급된다")
+                    .isEqualTo(20);
         }
     }
 

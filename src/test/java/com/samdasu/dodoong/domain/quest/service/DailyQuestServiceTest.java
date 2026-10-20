@@ -239,10 +239,10 @@ class DailyQuestServiceTest {
         }
 
         @Test
-        @DisplayName("레벨업 직후 체크 해제하면 레벨이 다시 내려간다 (leveledUp은 false)")
-        void uncheckRollsBackLevelUp() {
+        @DisplayName("레벨업 직후 체크 해제해도 레벨은 유지되고 경험치만 차감된다 (R7 수정 — 레벨 다운 폐지)")
+        void uncheckKeepsLevelAfterLevelUp() {
             Member member = createMember(7L);
-            member.addExperience(200); // 레벨 2, 경험치 0
+            member.addExperience(200); // 레벨 2, 경험치 0, 코인 20
             DailyQuest quest = createQuest(11L, member, null);
             quest.changeChecked(true);
             when(memberRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(member));
@@ -251,9 +251,10 @@ class DailyQuestServiceTest {
             DailyQuestCheckResponse response =
                     dailyQuestService.checkDailyQuest(7L, 11L, new DailyQuestCheckRequest(false));
 
-            assertThat(response.level()).isEqualTo(1);
-            assertThat(response.experience()).isEqualTo(190);
+            assertThat(response.level()).isEqualTo(2);
+            assertThat(response.experience()).isZero();
             assertThat(response.leveledUp()).isFalse();
+            assertThat(member.getCoin()).isEqualTo(20);
         }
 
         @Test
